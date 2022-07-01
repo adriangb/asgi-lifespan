@@ -217,8 +217,6 @@ def test_application_lifespan_fails_without_exception_during_setup() -> None:
         assert lifespan.setup_called
         assert not lifespan.teardown_called
 
-    assert lifespan.teardown_called
-
 
 def test_application_lifespan_fails_with_exception_during_teardown() -> None:
     # the application's lifespan fails to run and raises
