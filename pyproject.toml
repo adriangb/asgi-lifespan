@@ -36,7 +36,6 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.7,<4"
-typing-extensions = { version = "^4.2.0", python = "<3.8"}
 
 [tool.poetry.dev-dependencies]
 # linting
