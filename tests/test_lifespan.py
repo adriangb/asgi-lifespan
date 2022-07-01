@@ -1,12 +1,12 @@
 from contextlib import asynccontextmanager
-from typing import Any, AsyncContextManager, AsyncGenerator, AsyncIterator, List, Union
+from typing import Any, AsyncContextManager, AsyncIterator, List, Union
 
 import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
-from starlette.types import ASGIApp, Receive, Scope, Send, Message
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from asgi_lifespan._middleware import LifespanMiddleware
+from asgi_lifespan_middleware import LifespanMiddleware
 
 
 class TrackingLifespan(AsyncContextManager[None]):

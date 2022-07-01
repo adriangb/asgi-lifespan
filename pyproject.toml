@@ -62,7 +62,7 @@ profile = "black"
 
 [tool.coverage.run]
 branch = true
-source = ["asgi_lifespan", "tests"]
+source = ["asgi_lifespan_middleware", "tests"]
 dynamic_context = "test_function"
 
 [tool.coverage.report]
