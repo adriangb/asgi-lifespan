@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
-from typing import Any, AsyncContextManager, AsyncIterator, Union
+from typing import Any, AsyncContextManager, AsyncGenerator, AsyncIterator, List, Union
 
 import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send, Message
 
 from asgi_lifespan._middleware import LifespanMiddleware
 
@@ -97,3 +97,149 @@ def test_lifespan_execution_order() -> None:
         assert not outer_lifespan.teardown_called
 
     assert outer_lifespan.teardown_called
+
+
+@pytest.mark.anyio
+async def test_lifespan_startup_failure() -> None:
+    # handle the case where the lifespan raises an exception
+    # during it's setup
+    # we should send the "lifespan.startup.failed" message
+    # we also choose to re-raise the exception, but that is not required
+
+    class MyException(Exception):
+        pass
+
+    @asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        raise MyException
+        yield  # pragma: no cover
+
+    app = LifespanMiddleware(app=Starlette(), lifespan=lifespan)
+
+    scope = {"type": "lifespan"}
+
+    sent_messages: List[str] = []
+
+    async def rcv() -> Message:
+        # this is implementation specific: it would be okay to call recv()
+        # then fail!
+        # but for now we'll just test the implementation we have
+        raise AssertionError("should not be called")  # pragma: no cover
+
+    async def send(message: Message) -> None:
+        sent_messages.append(message["type"])
+
+    # not again that we don't _have_ to re-raise the exception
+    # it's up to our implementation, and we decide to do it
+    # so we'll check that we do
+    with pytest.raises(MyException):
+        await app(scope, rcv, send)
+
+    assert sent_messages == ["lifespan.startup.failed"]
+
+
+@pytest.mark.anyio
+async def test_lifespan_teardown_failure() -> None:
+    # handle the case where the lifespan raises an exception
+    # during it's teardown
+    # we should send the "lifespan.shutdown.failed" message
+    # we also choose to re-raise the exception, but that is not required
+
+    class MyException(Exception):
+        pass
+
+    @asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        yield
+        raise MyException
+
+    app = LifespanMiddleware(app=Starlette(), lifespan=lifespan)
+
+    scope = {"type": "lifespan"}
+
+    sent_messages: List[str] = []
+
+    async def rcv_gen() -> AsyncIterator[Message]:
+        yield {"type": "lifespan.startup"}
+        yield {"type": "lifespan.shutdown"}
+
+    async def send(message: Message) -> None:
+        sent_messages.append(message["type"])
+
+    rcv = rcv_gen()
+
+    # not again that we don't _have_ to re-raise the exception
+    # it's up to our implementation, and we decide to do it
+    # so we'll check that we do
+    with pytest.raises(MyException):
+        await app(scope, rcv.__anext__, send)
+
+    assert sent_messages == ["lifespan.startup.complete", "lifespan.shutdown.failed"]
+
+
+def test_application_lifespan_fails_with_exception_during_setup() -> None:
+    # the application's lifespan fails to run and raises an exception during it's setup
+
+    class MyException(Exception):
+        pass
+
+    lifespan = TrackingLifespan()
+
+    @asynccontextmanager
+    async def bad_lifespan(app: Starlette) -> AsyncIterator[None]:
+        raise MyException
+        yield  # pragma: no cover
+
+    app = LifespanMiddleware(app=Starlette(lifespan=bad_lifespan), lifespan=lifespan)
+
+    with pytest.raises(MyException):
+        with TestClient(app):
+            assert lifespan.setup_called
+            assert not lifespan.teardown_called
+
+    assert lifespan.teardown_called
+
+
+@pytest.mark.xfail(reason="TestClient errors out, need to investigate")
+def test_application_lifespan_fails_without_exception_during_setup() -> None:
+    # the application's lifespan fails to run and doesn't raise anything
+
+    async def bad_app(scope: Scope, receive: Receive, send: Send) -> None:
+        await receive()
+        await send({"type": "lifespan.startup.failed"})
+        return
+
+    lifespan = TrackingLifespan()
+
+    app = LifespanMiddleware(app=bad_app, lifespan=lifespan)
+
+    with TestClient(app):
+        assert lifespan.setup_called
+        assert not lifespan.teardown_called
+
+    assert lifespan.teardown_called
+
+
+def test_application_lifespan_fails_with_exception_during_teardown() -> None:
+    # the application's lifespan fails to run and raises
+    # an exception during it's teardown
+
+    class MyException(Exception):
+        pass
+
+    lifespan = TrackingLifespan()
+
+    @asynccontextmanager
+    async def bad_lifespan(app: Starlette) -> AsyncIterator[None]:
+        yield
+        raise MyException
+
+    app = LifespanMiddleware(app=Starlette(lifespan=bad_lifespan), lifespan=lifespan)
+
+    # we also re-raise the exception here and it would be nice to test for it
+    # but TestClient ignores it (fair enough) so it'd be a bit complex to test for
+    with TestClient(app):
+        assert lifespan.setup_called
+        assert not lifespan.teardown_called
+
+    assert lifespan.teardown_called
