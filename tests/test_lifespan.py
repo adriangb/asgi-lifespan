@@ -11,8 +11,8 @@ from asgi_lifespan_middleware import LifespanMiddleware
 
 class TrackingLifespan(AsyncContextManager[None]):
     def __init__(self) -> None:
-        self.setup_called = False
-        self.teardown_called = False
+        self.setup_called: bool = False
+        self.teardown_called: bool = False
 
     def __call__(self, *args: Any) -> AsyncContextManager[None]:
         assert len(args) == 1
@@ -42,7 +42,7 @@ def test_single_lifespan_application_supports_lifespan() -> None:
         assert not inner_lifespan.teardown_called
 
     assert outer_lifespan.teardown_called
-    assert inner_lifespan.teardown_called
+    assert inner_lifespan.teardown_called  # type: ignore #  pragma: no cover
 
 
 async def no_lifespan_app_does_nothing(
@@ -112,7 +112,7 @@ async def test_lifespan_startup_failure() -> None:
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
         raise MyException
-        yield  # pragma: no cover
+        yield  # type: ignore #  pragma: no cover
 
     app = LifespanMiddleware(app=Starlette(), lifespan=lifespan)
 
@@ -188,7 +188,7 @@ def test_application_lifespan_fails_with_exception_during_setup() -> None:
     @asynccontextmanager
     async def bad_lifespan(app: Starlette) -> AsyncIterator[None]:
         raise MyException
-        yield  # pragma: no cover
+        yield  # type: ignore #  pragma: no cover
 
     app = LifespanMiddleware(app=Starlette(lifespan=bad_lifespan), lifespan=lifespan)
 
