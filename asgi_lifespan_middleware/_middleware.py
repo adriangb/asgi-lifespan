@@ -1,6 +1,6 @@
 import traceback
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncContextManager, AsyncIterator, Callable, List, TypeVar
+from typing import AsyncContextManager, AsyncIterator, Callable, Dict, TypeVar
 
 from asgi_lifespan_middleware._types import ASGIApp, Message, Receive, Scope, Send
 
@@ -22,18 +22,19 @@ class LifespanMiddleware:
             await self._app(scope, receive, send)
             return
 
-        rcv_events: "List[str]" = []
-        send_events: "List[str]" = []
+        rcv_events: Dict[str, bool] = {}
+        send_events: Dict[str, bool] = {}
 
         async def wrapped_rcv() -> Message:
             message = await receive()
-            rcv_events.append(message["type"])
+            rcv_events[message["type"]] = True
             return message
 
         async def wrapped_send(message: Message) -> None:
-            send_events.append(message["type"])
+            send_events[message["type"]] = True
             if message["type"] == "lifespan.shutdown.complete":
                 # we want to send this one ourselves
+                # once we are done
                 return
             await send(message)
 
@@ -102,3 +103,5 @@ class LifespanMiddleware:
                 await send({"type": "lifespan.startup.complete"})
                 # we'll block here until the ASGI server shuts us down
                 await receive()
+        # even if the app sent this, we intercepted it and discarded it until we were done
+        await send({"type": "lifespan.shutdown.complete"})
