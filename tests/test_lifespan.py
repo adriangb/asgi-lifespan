@@ -121,10 +121,7 @@ async def test_lifespan_startup_failure() -> None:
     sent_messages: List[str] = []
 
     async def rcv() -> Message:
-        # this is implementation specific: it would be okay to call recv()
-        # then fail!
-        # but for now we'll just test the implementation we have
-        raise AssertionError("should not be called")  # pragma: no cover
+        return {"type": "lifespan.startup"}
 
     async def send(message: Message) -> None:
         sent_messages.append(message["type"])
@@ -234,10 +231,9 @@ def test_application_lifespan_fails_with_exception_during_teardown() -> None:
 
     app = LifespanMiddleware(app=Starlette(lifespan=bad_lifespan), lifespan=lifespan)
 
-    # we also re-raise the exception here and it would be nice to test for it
-    # but TestClient ignores it (fair enough) so it'd be a bit complex to test for
-    with TestClient(app):
-        assert lifespan.setup_called
-        assert not lifespan.teardown_called
+    with pytest.raises(MyException):
+        with TestClient(app):
+            assert lifespan.setup_called
+            assert not lifespan.teardown_called
 
     assert lifespan.teardown_called
