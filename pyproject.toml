@@ -39,18 +39,18 @@ python = ">=3.7,<4"
 
 [tool.poetry.dev-dependencies]
 # linting
-black = "~22"
-flake8 = "~3"
-isort = "~5"
-pre-commit = "~2"
+black = "*"
+flake8 = "*"
+isort = "*"
+pre-commit = "*"
+mypy = "*"
 # testing
-pytest = "~6"
-pytest-cov = { version = "~3" }
-pytest-sugar = "~0"
-trio = "^0.19.0"
-starlette = "^0.20.4"
-requests = "^2.28.1"
-mypy = "^0.961"
+pytest = "*"
+pytest-cov = { version = "*" }
+pytest-sugar = "*"
+trio = "*"
+starlette = "*"
+httpx = "*"
 
 [build-system]
 requires = ["poetry-core"]
