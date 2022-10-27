@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "asgi-lifespan-middleware"
-version = "0.1.2"
+version = "0.1.3"
 description = "Middleware to handle ASGI lifespans"
 authors = ["Adrian Garcia Badaracco <adrian@adriangb.com>"]
 readme = "README.md"
